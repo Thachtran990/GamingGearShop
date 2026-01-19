@@ -1,0 +1,14 @@
+# Node modules (Thư viện nặng, không cần up lên)
+node_modules/
+
+# Môi trường & Bảo mật (Tuyệt đối không up lên)
+.env
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Hệ điều hành
+.DS_Store
+Thumbs.db
