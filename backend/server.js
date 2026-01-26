@@ -2,9 +2,11 @@ const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const connectDB = require('./config/db');
+const orderRoutes = require("./routes/orderRoutes"); // 1. Import
 
-// --- QUAN TRỌNG: Dòng này lúc nãy bị thiếu nè ---
+// Import Routes
 const productRoutes = require('./routes/productRoutes'); 
+const userRoutes = require("./routes/userRoutes"); // <--- Dùng require cho đồng bộ
 
 dotenv.config();
 connectDB();
@@ -18,8 +20,10 @@ app.get('/', (req, res) => {
     res.send('API đang chạy ngon lành!');
 });
 
-// Sử dụng Routes cho sản phẩm
+// Sử dụng Routes
 app.use('/api/products', productRoutes);
+app.use("/api/users", userRoutes); // <--- Đặt ở đây là chuẩn
+app.use("/api/orders", orderRoutes); // 2. Thêm dòng này vào
 
 const PORT = process.env.PORT || 5000;
 

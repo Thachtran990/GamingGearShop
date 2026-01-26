@@ -1,11 +1,20 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const { getProducts, getProductById } = require('../controllers/productController');
+// 1. Import thêm updateProduct
+const { 
+  getProducts, 
+  getProductById, 
+  deleteProduct, 
+  createProduct, 
+  updateProduct 
+} = require("../controllers/productController.js");
 
-// Nếu ai vào đường dẫn gốc (/) thì gọi hàm lấy tất cả
-router.get('/', getProducts);
+router.route("/").get(getProducts).post(createProduct);
 
-// Nếu ai vào đường dẫn có ID (/:id) thì gọi hàm lấy 1 cái
-router.get('/:id', getProductById);
+// 2. Sửa dòng này: Gộp GET (lấy chi tiết), DELETE (xóa) và PUT (sửa) vào chung 1 dòng cho gọn
+router.route("/:id")
+  .get(getProductById)
+  .delete(deleteProduct)
+  .put(updateProduct); // <--- Thêm phương thức PUT
 
 module.exports = router;
