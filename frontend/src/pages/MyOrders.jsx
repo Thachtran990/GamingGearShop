@@ -10,8 +10,17 @@ const MyOrders = () => {
       if (!userInfo) return;
 
       try {
-        // Gọi API kèm theo userId
-        const res = await fetch(`/api/orders/myorders?userId=${userInfo._id}`);
+        const res = await fetch(`/api/orders/myorders?userId=${userInfo._id}`, {
+          headers: {
+            Authorization: `Bearer ${userInfo.token}`,
+          },
+        });
+        
+        if (!res.ok) {
+            console.error("Lỗi tải đơn hàng:", res.status);
+            return;
+        }
+
         const data = await res.json();
         setOrders(data);
       } catch (error) {
@@ -39,7 +48,8 @@ const MyOrders = () => {
                 <th className="py-3 px-4 text-left">Ngày đặt</th>
                 <th className="py-3 px-4 text-left">Tổng tiền</th>
                 <th className="py-3 px-4 text-left">Thanh toán</th>
-                <th className="py-3 px-4 text-left">Giao hàng</th>
+                <th className="py-3 px-4 text-left">Trạng thái</th> {/* Đổi tên cột cho chuẩn */}
+                <th className="py-3 px-4 text-left">Chi tiết</th> 
               </tr>
             </thead>
             <tbody>
@@ -48,6 +58,8 @@ const MyOrders = () => {
                   <td className="py-3 px-4 text-sm font-mono text-blue-600">{order._id}</td>
                   <td className="py-3 px-4">{new Date(order.createdAt).toLocaleDateString('vi-VN')}</td>
                   <td className="py-3 px-4 font-bold">{order.totalPrice.toLocaleString('vi-VN')} đ</td>
+                  
+                  {/* CỘT THANH TOÁN */}
                   <td className="py-3 px-4">
                     {order.isPaid ? (
                       <span className="text-green-600 font-bold">Đã trả</span>
@@ -55,12 +67,31 @@ const MyOrders = () => {
                       <span className="text-red-500">Chưa trả</span>
                     )}
                   </td>
+
+                  {/* 👇 CỘT TRẠNG THÁI GIAO HÀNG (SỬA LẠI ĐỂ HIỆN TEXT CỤ THỂ) */}
                   <td className="py-3 px-4">
-                    {order.isDelivered ? (
-                      <span className="text-green-600 font-bold">Đã giao</span>
-                    ) : (
-                      <span className="text-yellow-600">Đang xử lý</span>
-                    )}
+                     {(() => {
+                        // Logic chọn màu và hiển thị text ngay tại đây
+                        let statusColor = "text-yellow-600"; // Mặc định là chờ xử lý
+                        if (order.status === "Đang giao hàng") statusColor = "text-blue-600 font-bold";
+                        if (order.status === "Đã giao hàng") statusColor = "text-green-600 font-bold";
+                        if (order.status === "Đã hủy") statusColor = "text-red-600 font-bold";
+
+                        return (
+                            <span className={statusColor}>
+                                {order.status || (order.isDelivered ? "Đã giao hàng" : "Chờ xử lý")}
+                            </span>
+                        )
+                     })()}
+                  </td>
+
+                  <td className="py-3 px-4">
+                    <Link 
+                        to={`/order/${order._id}`} 
+                        className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
+                    >
+                        Xem
+                    </Link>
                   </td>
                 </tr>
               ))}

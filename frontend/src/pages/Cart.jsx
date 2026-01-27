@@ -103,11 +103,12 @@ const Cart = () => {
           
           {/* Nút thanh toán đã gắn hàm handleCheckout */}
           <button 
-            onClick={handleCheckout}
-            className="w-full bg-black text-white py-3 rounded hover:bg-gray-800 transition"
+            // Thay vì gọi hàm API cũ, giờ chỉ cần chuyển trang
+            onClick={() => navigate("/shipping")} 
+            className="w-full bg-black text-white py-3 rounded mt-6 hover:bg-gray-800"
           >
             TIẾN HÀNH ĐẶT HÀNG
-          </button>
+        </button>
         </div>
       </div>
     </div>

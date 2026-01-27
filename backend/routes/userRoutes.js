@@ -1,9 +1,12 @@
 const express = require("express");
-const { registerUser, authUser } = require("../controllers/userController.js"); // 1. Thêm authUser
-
 const router = express.Router();
+const { authUser, registerUser, updateUserProfile } = require("../controllers/userController.js");
+const { protect } = require("../middlewares/authMiddleware.js"); // <--- Đảm bảo đã import
 
+router.post("/login", authUser);
 router.post("/", registerUser);
-router.post("/login", authUser); // 2. Thêm dòng này
+
+// 👇 QUAN TRỌNG: Phải có chữ 'protect' ở giữa
+router.route("/profile").put(protect, updateUserProfile); 
 
 module.exports = router;

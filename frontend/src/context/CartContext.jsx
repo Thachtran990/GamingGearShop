@@ -1,43 +1,70 @@
-import { createContext, useState, useContext, useEffect } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
 
 const CartContext = createContext();
 
 export const CartProvider = ({ children }) => {
-  // 1. Lấy giỏ hàng từ LocalStorage (nếu có) khi vừa mở web
+  // 1. Lấy giỏ hàng từ LocalStorage (nếu có)
   const [cartItems, setCartItems] = useState(() => {
     const savedCart = localStorage.getItem("cartItems");
     return savedCart ? JSON.parse(savedCart) : [];
   });
 
-  // 2. Mỗi khi giỏ hàng thay đổi -> Lưu ngay vào LocalStorage
+  
+
+  // 2. Lấy địa chỉ giao hàng từ LocalStorage (nếu có)
+  const [shippingAddress, setShippingAddress] = useState(() => {
+    const savedAddress = localStorage.getItem("shippingAddress");
+    return savedAddress ? JSON.parse(savedAddress) : {};
+  });
+
+  // Lưu giỏ hàng mỗi khi thay đổi
   useEffect(() => {
     localStorage.setItem("cartItems", JSON.stringify(cartItems));
   }, [cartItems]);
 
-  // Hàm thêm sản phẩm
+  // Lưu địa chỉ mỗi khi thay đổi
+  useEffect(() => {
+    localStorage.setItem("shippingAddress", JSON.stringify(shippingAddress));
+  }, [shippingAddress]);
+
   const addToCart = (product) => {
-    setCartItems((prev) => {
-      const existItem = prev.find((item) => item._id === product._id);
-      if (existItem) {
-        // Nếu có rồi thì tăng số lượng lên 1
-        return prev.map((item) =>
-          item._id === product._id ? { ...item, qty: item.qty + 1 } : item
-        );
-      } else {
-        // Nếu chưa có thì thêm mới với số lượng = 1
-        return [...prev, { ...product, qty: 1 }];
-      }
-    });
-    alert("Đã thêm vào giỏ hàng!");
+    const existItem = cartItems.find((x) => x._id === product._id);
+    if (existItem) {
+      setCartItems(
+        cartItems.map((x) =>
+          x._id === existItem._id ? { ...x, qty: x.qty + 1 } : x
+        )
+      );
+    } else {
+      setCartItems([...cartItems, { ...product, qty: 1 }]);
+    }
   };
 
-  // Hàm xóa sản phẩm
   const removeFromCart = (id) => {
-    setCartItems((prev) => prev.filter((item) => item._id !== id));
+    setCartItems(cartItems.filter((x) => x._id !== id));
+  };
+
+  const clearCart = () => {
+    setCartItems([]);
+    localStorage.removeItem("cartItems");
+  };
+
+  // 👇 HÀM MỚI: Lưu địa chỉ giao hàng
+  const saveShippingAddress = (data) => {
+    setShippingAddress(data);
   };
 
   return (
-    <CartContext.Provider value={{ cartItems, addToCart, removeFromCart }}>
+    <CartContext.Provider
+      value={{
+        cartItems,
+        addToCart,
+        removeFromCart,
+        clearCart,
+        shippingAddress, // Xuất biến này ra để dùng
+        saveShippingAddress, // Xuất hàm này ra để dùng
+      }}
+    >
       {children}
     </CartContext.Provider>
   );

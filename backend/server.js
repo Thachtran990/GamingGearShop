@@ -26,7 +26,10 @@ app.use("/api/users", userRoutes); // <--- Đặt ở đây là chuẩn
 app.use("/api/orders", orderRoutes); // 2. Thêm dòng này vào
 
 const PORT = process.env.PORT || 5000;
-
+// 👇 THÊM ĐOẠN NÀY ĐỂ TRẢ VỀ PAYPAL CLIENT ID
+app.get("/api/config/paypal", (req, res) =>
+  res.send(process.env.PAYPAL_CLIENT_ID || "sb") 
+);
 app.listen(PORT, () => {
     console.log(`Server đang chạy trên cổng ${PORT}`);
 });
