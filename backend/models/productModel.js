@@ -1,7 +1,8 @@
 const mongoose = require("mongoose");
 
-// 1. Quy định cấu trúc của 1 lời bình luận
-// 1. Schema cho các câu trả lời nhỏ bên trong (Sub-comment)
+// --- PHẦN 1: CẤU TRÚC REVIEW & COMMENT (GIỮ NGUYÊN CỦA BẠN) ---
+
+// 1.1 Schema cho các câu trả lời nhỏ bên trong (Sub-comment)
 const replySchema = mongoose.Schema(
   {
     name: { type: String, required: true },
@@ -12,7 +13,7 @@ const replySchema = mongoose.Schema(
   { timestamps: true }
 );
 
-// 2. Schema review chính
+// 1.2 Schema review chính
 const reviewSchema = mongoose.Schema(
   {
     name: { type: String, required: true },
@@ -24,38 +25,59 @@ const reviewSchema = mongoose.Schema(
       ref: "User",
     },
     isSpam: { type: Boolean, default: false },
-    
-    // 👇 THAY ĐỔI Ở ĐÂY: Thay adminReply bằng mảng replies
     replies: [replySchema], 
   },
   { timestamps: true }
 );
 
-// 2. Cấu trúc sản phẩm chính
+// --- PHẦN 2: CẤU TRÚC BIẾN THỂ (MỚI THÊM VÀO) ---
+
+// 👇 2.1 Schema cho từng biến thể con (Ví dụ: Chuột đen, Chuột trắng)
+const variantSchema = mongoose.Schema({
+  sku: { type: String }, // Mã kho riêng (VD: G102-BLK)
+  price: { type: Number, required: true }, // Giá riêng của biến thể
+  countInStock: { type: Number, required: true, default: 0 }, // Kho riêng
+  image: { type: String }, // Ảnh riêng (nếu cần)
+  
+  // Mảng chứa các thuộc tính động. VD: [{ k: "Màu", v: "Đen" }, { k: "Switch", v: "Red" }]
+  attributes: [
+    {
+      k: { type: String, required: true }, // Key (Tên thuộc tính)
+      v: { type: String, required: true }  // Value (Giá trị)
+    }
+  ]
+});
+
+// --- PHẦN 3: CẤU TRÚC SẢN PHẨM CHÍNH ---
+
 const productSchema = mongoose.Schema(
   {
     user: {
       type: mongoose.Schema.Types.ObjectId,
-      required: false,
+      required: false, // Để false cho dễ test, sau này nên để true
       ref: "User",
     },
     name: { type: String, required: true },
-    image: { type: String, required: true },
+    image: { type: String, required: true }, // Ảnh đại diện chung
     brand: { type: String, required: true },
     category: { type: String, required: true },
     description: { type: String, required: true },
     
-    // 👇 THÊM MỚI: Mảng chứa các bình luận
+    // Mảng review cũ
     reviews: [reviewSchema], 
     
-    // 👇 Điểm đánh giá trung bình
     rating: { type: Number, required: true, default: 0 }, 
-    
-    // 👇 Tổng số lượng đánh giá
     numReviews: { type: Number, required: true, default: 0 }, 
     
+    // 👇 HAI TRƯỜNG NÀY VẪN GIỮ LẠI (Dùng cho sản phẩm đơn giản hoặc làm giá hiển thị mặc định)
     price: { type: Number, required: true, default: 0 },
     countInStock: { type: Number, required: true, default: 0 },
+
+    // 👇 THÊM MỚI: Cờ đánh dấu sản phẩm có biến thể hay không
+    hasVariants: { type: Boolean, default: false },
+
+    // 👇 THÊM MỚI: Mảng chứa danh sách biến thể
+    variants: [variantSchema], 
   },
   { timestamps: true }
 );
