@@ -1,180 +1,193 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 const AdminOrderList = () => {
   const [orders, setOrders] = useState([]);
-  const [activeTab, setActiveTab] = useState("all"); // Tab đang chọn
-  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [viewDeleted, setViewDeleted] = useState(false); // 👇 State mới: Chế độ xem thùng rác
+  
   const userInfo = JSON.parse(localStorage.getItem("userInfo"));
+  const navigate = useNavigate();
 
-  // Hàm tải lại đơn hàng
+  // 1. Hàm lấy danh sách (Có tham số deleted)
   const fetchOrders = async () => {
-    if (!userInfo || !userInfo.isAdmin) {
-      navigate("/");
-      return;
-    }
+    setLoading(true); // Hiệu ứng load cho mượt
     try {
-      const res = await fetch("/api/orders", {
+      // 👇 Gửi thêm ?deleted=true hoặc false lên server
+      const res = await fetch(`/api/orders?deleted=${viewDeleted}`, {
         headers: { Authorization: `Bearer ${userInfo.token}` },
       });
       const data = await res.json();
-      // Sắp xếp đơn mới nhất lên đầu
-      setOrders(data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+      setOrders(data);
+      setLoading(false);
     } catch (error) {
       console.error(error);
+      setLoading(false);
     }
   };
 
+  // Mỗi khi biến viewDeleted thay đổi -> Gọi lại API
   useEffect(() => {
-    fetchOrders();
-  }, [navigate]);
+    if (userInfo && userInfo.isAdmin) {
+      fetchOrders();
+    } else {
+      navigate("/login");
+    }
+  }, [viewDeleted]); // <-- Theo dõi biến này
 
-  // --- XỬ LÝ CHUYỂN TRẠNG THÁI ---
-  const updateStatusHandler = async (id, status) => {
-    if(!window.confirm(`Chuyển trạng thái sang: ${status}?`)) return;
+  // 2. Xử lý trạng thái (Giữ nguyên)
+  const updateStatusHandler = async (orderId, newStatus) => {
+    if(!window.confirm(`Chuyển trạng thái sang: ${newStatus}?`)) return;
     try {
-        await fetch(`/api/orders/${id}/status`, {
+      await fetch(`/api/orders/${orderId}/status`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${userInfo.token}` },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      fetchOrders();
+    } catch (error) { console.error(error); }
+  };
+
+  // 3. Xử lý Xóa (Giữ nguyên)
+  const deleteHandler = async (id) => {
+    if (window.confirm("Chuyển đơn này vào thùng rác?")) {
+      try {
+        await fetch(`/api/orders/${id}/admin-delete`, {
             method: "PUT",
-            headers: { 
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${userInfo.token}` 
-            },
-            body: JSON.stringify({ status }),
+            headers: { Authorization: `Bearer ${userInfo.token}` },
         });
-        fetchOrders(); // Tải lại dữ liệu
-    } catch (error) {
-        alert("Lỗi cập nhật");
+        fetchOrders();
+      } catch (error) { console.error(error); }
     }
   };
 
-  // --- XỬ LÝ XÓA / KHÔI PHỤC ---
-  const deleteHandler = async (id, isDeletedCurrent) => {
-    const msg = isDeletedCurrent 
-        ? "Bạn muốn KHÔI PHỤC đơn này?" 
-        : "Bạn muốn chuyển đơn này vào THÙNG RÁC?";
-    
-    if (window.confirm(msg)) {
-        try {
-            await fetch(`/api/orders/${id}/delete`, {
-                method: "PUT",
-                headers: { Authorization: `Bearer ${userInfo.token}` },
-            });
-            fetchOrders();
-        } catch (error) {
-            alert("Lỗi thao tác");
-        }
+  // 4. Xử lý Khôi phục (MỚI)
+  const restoreHandler = async (id) => {
+    if (window.confirm("Khôi phục đơn hàng này lại danh sách chính?")) {
+      try {
+        await fetch(`/api/orders/${id}/admin-restore`, {
+            method: "PUT",
+            headers: { Authorization: `Bearer ${userInfo.token}` },
+        });
+        fetchOrders();
+      } catch (error) { console.error(error); }
     }
   };
 
-  // --- LOGIC LỌC ĐƠN HÀNG THEO TAB ---
-  const filteredOrders = orders.filter((order) => {
-    if (activeTab === "deleted") return order.isDeleted; // Tab thùng rác
-    if (order.isDeleted) return false; // Các tab khác thì ẩn đơn đã xóa đi
-
-    if (activeTab === "all") return true;
-    return order.status === activeTab;
-  });
-
-  // Danh sách các Tab
-  const tabs = [
-    { id: "all", label: "Tất cả" },
-    { id: "Chờ xử lý", label: "⏳ Chờ xử lý" },
-    { id: "Đang giao hàng", label: "🚚 Đang giao" },
-    { id: "Đã giao hàng", label: "✅ Đã giao" },
-    { id: "deleted", label: "🗑️ Thùng rác" },
-  ];
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case "Đã giao hàng": return "bg-green-100 text-green-800 border-green-200";
+      case "Đang giao hàng": return "bg-blue-100 text-blue-800 border-blue-200";
+      case "Đã hủy": return "bg-red-100 text-red-800 border-red-200";
+      default: return "bg-yellow-100 text-yellow-800 border-yellow-200";
+    }
+  };
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-6 text-center text-blue-800">QUẢN LÝ ĐƠN HÀNG</h1>
+    <div className="container mx-auto p-4 max-w-7xl">
+      <div className="flex justify-between items-center mb-6 border-b pb-4">
+          <h1 className="text-2xl font-bold text-gray-800 uppercase border-l-4 border-yellow-400 pl-3">
+            {viewDeleted ? "🗑️ THÙNG RÁC ĐƠN HÀNG" : "📋 QUẢN LÝ ĐƠN HÀNG"}
+          </h1>
 
-      {/* --- THANH TAB --- */}
-      <div className="flex flex-wrap gap-2 mb-6 justify-center">
-        {tabs.map((tab) => (
-            <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2 rounded-full font-bold transition ${
-                    activeTab === tab.id 
-                    ? "bg-blue-600 text-white shadow-lg" 
-                    : "bg-gray-200 text-gray-600 hover:bg-gray-300"
-                }`}
-            >
-                {tab.label}
-            </button>
-        ))}
+          {/* 👇 NÚT CHUYỂN ĐỔI CHẾ ĐỘ XEM */}
+          <button 
+            onClick={() => setViewDeleted(!viewDeleted)}
+            className={`px-4 py-2 rounded font-bold shadow transition flex items-center gap-2 ${
+                viewDeleted 
+                ? "bg-gray-600 text-white hover:bg-gray-700" 
+                : "bg-red-100 text-red-600 hover:bg-red-200"
+            }`}
+          >
+            {viewDeleted ? "⬅️ Quay lại danh sách" : "🗑️ Xem thùng rác"}
+          </button>
       </div>
+      
+      {loading ? (
+        <div className="text-center py-10">Đang tải dữ liệu...</div>
+      ) : orders.length === 0 ? (
+        <div className="text-center py-10 text-gray-500 italic border rounded-lg bg-gray-50">
+            {viewDeleted ? "Thùng rác trống rỗng!" : "Chưa có đơn hàng nào."}
+        </div>
+      ) : (
+        <div className="overflow-x-auto shadow-xl rounded-lg border border-gray-200">
+          <table className="w-full text-sm text-left text-gray-500">
+            <thead className={`text-xs text-white uppercase ${viewDeleted ? "bg-red-800" : "bg-slate-800"}`}>
+              <tr>
+                <th className="px-4 py-3">Mã đơn</th>
+                <th className="px-4 py-3">Khách hàng</th>
+                <th className="px-4 py-3">Ngày đặt</th>
+                <th className="px-4 py-3">Tổng tiền</th>
+                <th className="px-4 py-3 text-center">Trạng thái</th>
+                <th className="px-4 py-3 text-center">Hành động</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orders.map((order) => (
+                <tr key={order._id} className="border-b hover:bg-gray-50 bg-white">
+                  <td className="px-4 py-3 font-mono text-blue-600 font-bold">{order._id.substring(0, 10)}...</td>
+                  <td className="px-4 py-3 font-medium text-gray-900">
+                    {order.guestInfo?.name || order.user?.name || "Khách vãng lai"}
+                  </td>
+                  <td className="px-4 py-3">{new Date(order.createdAt).toLocaleDateString('vi-VN')}</td>
+                  <td className="px-4 py-3 font-bold text-gray-800">{order.totalPrice.toLocaleString('vi-VN')} đ</td>
+                  
+                  {/* Trạng thái */}
+                  <td className="px-4 py-3 text-center">
+                      {viewDeleted ? (
+                          // Nếu ở thùng rác thì chỉ hiện text, ko cho sửa
+                          <span className={`px-2 py-1 rounded text-xs font-bold ${getStatusBadge(order.status)}`}>
+                              {order.status}
+                          </span>
+                      ) : (
+                          // Nếu ở danh sách thường thì cho sửa
+                          <select 
+                            value={order.status || "Chờ xử lý"}
+                            onChange={(e) => updateStatusHandler(order._id, e.target.value)}
+                            className={`border rounded px-2 py-1 text-xs font-bold outline-none cursor-pointer ${getStatusBadge(order.status)}`}
+                          >
+                            <option value="Chờ xử lý">⏳ Chờ xử lý</option>
+                            <option value="Đang giao hàng">🚚 Đang giao hàng</option>
+                            <option value="Đã giao hàng">✅ Đã giao hàng</option>
+                            <option value="Đã hủy">❌ Đã hủy</option>
+                          </select>
+                      )}
+                  </td>
 
-      {/* --- BẢNG ĐƠN HÀNG --- */}
-      <div className="overflow-x-auto bg-white shadow-md rounded-lg">
-        <table className="min-w-full">
-          <thead className="bg-gray-800 text-white">
-            <tr>
-              <th className="py-3 px-4 text-left">Mã Đơn</th>
-              <th className="py-3 px-4 text-left">Khách hàng</th>
-              <th className="py-3 px-4 text-left">Tổng tiền</th>
-              <th className="py-3 px-4 text-left">Trạng thái</th>
-              <th className="py-3 px-4 text-left">Hành động</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredOrders.length === 0 ? (
-                <tr><td colSpan="5" className="text-center py-4 text-gray-500">Không có đơn hàng nào</td></tr>
-            ) : (
-                filteredOrders.map((order) => (
-                <tr key={order._id} className="border-b hover:bg-gray-50">
-                    <td className="py-3 px-4 text-sm font-mono text-blue-600">
-                        {order._id} <br/>
-                        <span className="text-xs text-gray-400">{new Date(order.createdAt).toLocaleDateString('vi-VN')}</span>
-                    </td>
-                    <td className="py-3 px-4">
-                        <span className="font-bold block">{order.user ? order.user.name : (order.guestInfo?.name || "Khách")}</span>
-                        <span className="text-xs text-gray-500">{order.user ? order.user.email : order.guestInfo?.email}</span>
-                    </td>
-                    <td className="py-3 px-4 font-bold text-red-600">{order.totalPrice.toLocaleString('vi-VN')} đ</td>
-                    
-                    {/* CỘT TRẠNG THÁI (Có Select để đổi nhanh) */}
-                    <td className="py-3 px-4">
-                        {order.isDeleted ? (
-                            <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold">ĐÃ XÓA</span>
-                        ) : (
-                            <select 
-                                value={order.status || "Chờ xử lý"} // Fallback nếu đơn cũ chưa có status
-                                onChange={(e) => updateStatusHandler(order._id, e.target.value)}
-                                className={`border rounded px-2 py-1 text-sm font-bold cursor-pointer outline-none
-                                    ${order.status === 'Đã giao hàng' ? 'text-green-600 border-green-200 bg-green-50' : 
-                                      order.status === 'Đang giao hàng' ? 'text-blue-600 border-blue-200 bg-blue-50' : 'text-yellow-600 border-yellow-200 bg-yellow-50'}`}
-                            >
-                                <option value="Chờ xử lý">⏳ Chờ xử lý</option>
-                                <option value="Đang giao hàng">🚚 Đang giao</option>
-                                <option value="Đã giao hàng">✅ Đã giao</option>
-                            </select>
-                        )}
-                    </td>
-
-                    {/* CỘT HÀNH ĐỘNG */}
-                    <td className="py-3 px-4 flex gap-2">
-                        <Link to={`/order/${order._id}`}>
-                            <button className="bg-gray-200 hover:bg-gray-300 text-gray-700 p-2 rounded" title="Xem chi tiết">
-                                👁️
-                            </button>
-                        </Link>
-
-                        {/* Nút Xóa / Khôi phục */}
-                        <button 
-                            onClick={() => deleteHandler(order._id, order.isDeleted)}
-                            className={`p-2 rounded text-white ${order.isDeleted ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'}`}
-                            title={order.isDeleted ? "Khôi phục" : "Xóa đơn này"}
-                        >
-                            {order.isDeleted ? "♻️" : "🗑️"}
-                        </button>
-                    </td>
+                  {/* Hành động */}
+                  <td className="px-4 py-3 text-center">
+                    <div className="flex justify-center items-center gap-3">
+                      <Link to={`/order/${order._id}`} className="text-gray-500 hover:text-blue-600" title="Xem chi tiết">
+                          👁️
+                      </Link>
+                      
+                      {viewDeleted ? (
+                          // 👇 Nút Khôi phục (Chỉ hiện trong thùng rác)
+                          <button 
+                              onClick={() => restoreHandler(order._id)}
+                              className="text-green-500 hover:text-green-700 font-bold text-lg"
+                              title="Khôi phục lại danh sách"
+                          >
+                              ♻️
+                          </button>
+                      ) : (
+                          // 👇 Nút Xóa (Chỉ hiện trong danh sách chính)
+                          <button 
+                              onClick={() => deleteHandler(order._id)}
+                              className="text-gray-400 hover:text-red-600 text-lg"
+                              title="Chuyển vào thùng rác"
+                          >
+                              🗑️
+                          </button>
+                      )}
+                    </div>
+                  </td>
                 </tr>
-                ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 };

@@ -14,6 +14,10 @@ const orderSchema = mongoose.Schema(
       default: "Chờ xử lý", // Mặc định đơn mới vào sẽ là cái này
       enum: ["Chờ xử lý", "Đang giao hàng", "Đã giao hàng", "Đã hủy"] 
     },
+
+    // 👇 THÊM ĐÚNG 1 DÒNG NÀY THÔI
+    isDeletedByAdmin: { type: Boolean, default: false },
+    
     isDeleted: { 
       type: Boolean, 
       required: true, 

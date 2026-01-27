@@ -3,7 +3,7 @@ const jwt = require("jsonwebtoken");
 
 // @desc    Tạo đơn hàng mới (Hỗ trợ cả Guest và Member)
 // @route   POST /api/orders
-// @access  Public (Mở cho cả khách vãng lai)
+// @access  Public
 const addOrderItems = async (req, res) => {
   try {
     const {
@@ -66,7 +66,7 @@ const addOrderItems = async (req, res) => {
 
 // @desc    Lấy chi tiết 1 đơn hàng
 // @route   GET /api/orders/:id
-// @access  Private/Public (Tùy cấu hình route)
+// @access  Private/Public
 const getOrderById = async (req, res) => {
   const order = await Order.findById(req.params.id).populate("user", "name email");
 
@@ -100,7 +100,7 @@ const updateOrderToPaid = async (req, res) => {
   }
 };
 
-// @desc    Cập nhật trạng thái Đã giao hàng (Admin)
+// @desc    Cập nhật trạng thái Đã giao hàng (Admin - Legacy)
 // @route   PUT /api/orders/:id/deliver
 // @access  Private/Admin
 const updateOrderToDelivered = async (req, res) => {
@@ -121,16 +121,43 @@ const updateOrderToDelivered = async (req, res) => {
 // @route   GET /api/orders/myorders
 // @access  Private
 const getMyOrders = async (req, res) => {
-  // Chỉ tìm đơn hàng của user này
-  const orders = await Order.find({ user: req.user._id });
+  // 👇 CẬP NHẬT: Lấy tất cả, sắp xếp mới nhất lên đầu
+  const orders = await Order.find({ user: req.user._id })
+                            .sort({ createdAt: -1 });
   res.json(orders);
 };
 
 // @desc    Lấy tất cả đơn hàng (Admin)
 // @route   GET /api/orders
 // @access  Private/Admin
+
+// 1. SỬA LẠI HÀM getOrders (Hỗ trợ lọc đơn đã xóa)
 const getOrders = async (req, res) => {
-  const orders = await Order.find({}).populate("user", "id name");
+  // 1. Kiểm tra xem Frontend đang đòi xem cái gì
+  // Nếu url là /api/orders?deleted=true -> viewDeleted = true
+  const viewDeleted = req.query.deleted === 'true';
+
+  let query = {};
+
+  if (viewDeleted) {
+    // TRƯỜNG HỢP 1: Xem thùng rác
+    // Chỉ lấy những đơn đã bị đánh dấu xóa (true)
+    query = { isDeletedByAdmin: true };
+  } else {
+    // TRƯỜNG HỢP 2: Xem danh sách chính
+    // Lấy đơn có isDeletedByAdmin là false HOẶC không có trường này (đơn cũ)
+    query = { 
+        $or: [
+            { isDeletedByAdmin: false },
+            { isDeletedByAdmin: { $exists: false } }
+        ]
+    };
+    // Mẹo: Bạn có thể viết ngắn gọn là: { isDeletedByAdmin: { $ne: true } }
+  }
+
+  const orders = await Order.find(query)
+                            .populate("user", "id name")
+                            .sort({ createdAt: -1 }); // Mới nhất lên đầu
   res.json(orders);
 };
 
@@ -142,14 +169,13 @@ const updateOrderStatus = async (req, res) => {
   if (order) {
     order.status = req.body.status || order.status;
     
-    // --- ĐOẠN LOGIC ĐỒNG BỘ MỚI ---
+    // --- LOGIC ĐỒNG BỘ TRẠNG THÁI ---
     if (order.status === "Đã giao hàng") {
       order.isDelivered = true;
       order.deliveredAt = Date.now();
     } else {
-      // Nếu trạng thái LÀ "Chờ xử lý" HOẶC "Đang giao hàng" -> Phải set ngược lại là chưa giao
       order.isDelivered = false;
-      order.deliveredAt = null; // Xóa ngày giao luôn
+      order.deliveredAt = null; 
     }
     // -------------------------------
 
@@ -160,30 +186,46 @@ const updateOrderStatus = async (req, res) => {
   }
 };
 
-// @desc    Xóa mềm / Khôi phục đơn hàng (Admin)
-// @route   PUT /api/orders/:id/delete
-const softDeleteOrder = async (req, res) => {
+// @desc    Xóa vĩnh viễn đơn hàng khỏi trang Admin (Thực chất là ẩn đi)
+// @route   PUT /api/orders/:id/admin-delete
+// @access  Private/Admin
+const deleteOrderForAdmin = async (req, res) => {
   const order = await Order.findById(req.params.id);
 
   if (order) {
-    // Đảo ngược trạng thái: Nếu đang xóa thì thành chưa xóa, và ngược lại
-    order.isDeleted = !order.isDeleted; 
+    // Chỉ bật cờ này lên, dữ liệu vẫn còn trong DB nhưng Admin không thấy nữa
+    order.isDeletedByAdmin = true; 
     
     const updatedOrder = await order.save();
-    res.json({ message: "Đã cập nhật trạng thái xóa", isDeleted: updatedOrder.isDeleted });
+    res.json({ message: "Đã xóa đơn hàng khỏi trang quản trị", isDeletedByAdmin: true });
   } else {
     res.status(404).json({ message: "Không tìm thấy đơn hàng" });
   }
 };
 
-// 👇 XUẤT KHẨU TẤT CẢ HÀM (Quan trọng)
+// 2. THÊM HÀM MỚI: Khôi phục đơn hàng (Lấy lại từ thùng rác)
+// @route PUT /api/orders/:id/admin-restore
+const restoreOrderForAdmin = async (req, res) => {
+  const order = await Order.findById(req.params.id);
+
+  if (order) {
+    order.isDeletedByAdmin = false; // Tắt cờ xóa đi -> Hiện lại
+    await order.save();
+    res.json({ message: "Đã khôi phục đơn hàng" });
+  } else {
+    res.status(404).json({ message: "Không tìm thấy đơn hàng" });
+  }
+}
+
+// 👇 XUẤT KHẨU TẤT CẢ HÀM
 module.exports = {
   addOrderItems,
   getOrderById,
   updateOrderToPaid,
   updateOrderToDelivered,
-  getMyOrders, // <--- Hàm bị thiếu lúc nãy đây
+  getMyOrders, 
   getOrders,
   updateOrderStatus,
-  softDeleteOrder,
+  deleteOrderForAdmin,
+  restoreOrderForAdmin, // <--- Đã thay thế hàm softDeleteOrder bằng hàm này
 };

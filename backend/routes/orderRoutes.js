@@ -10,8 +10,9 @@ const {
   getOrderById,
   updateOrderToPaid,
   updateOrderToDelivered,
-  updateOrderStatus, // <--- Quan trọng: Phải import vào mới dùng được
-  softDeleteOrder    // <--- Quan trọng: Phải import vào mới dùng được
+  updateOrderStatus, 
+  deleteOrderForAdmin, // <--- ĐÃ ĐỔI: Dùng hàm mới này thay cho softDeleteOrder
+  restoreOrderForAdmin
 } = require("../controllers/orderController.js");
 
 // 1. Route tạo đơn & Lấy tất cả đơn (Admin)
@@ -29,15 +30,21 @@ router.route("/:id")
 // 4. Route thanh toán
 router.route("/:id/pay").put(updateOrderToPaid);
 
-// 5. Route giao hàng (Admin)
+// 5. Route giao hàng (Admin - Logic cũ, giữ lại để tương thích nếu cần)
 router.route("/:id/deliver")
   .put(authMiddleware.protect, authMiddleware.admin, updateOrderToDelivered);
 
-// 👇 6. HAI ROUTE MỚI BẠN VỪA THÊM (Cập nhật trạng thái & Xóa mềm)
+// 6. Route Cập nhật trạng thái (Dùng cho Dropdown menu)
 router.route("/:id/status")
   .put(authMiddleware.protect, authMiddleware.admin, updateOrderStatus);
 
-router.route("/:id/delete")
-  .put(authMiddleware.protect, authMiddleware.admin, softDeleteOrder);
+// 👇 7. ROUTE MỚI: Xóa đơn khỏi trang Admin (Khách vẫn thấy)
+// Lưu ý: Đã đổi tên endpoint thành 'admin-delete' cho khớp với Frontend
+router.route("/:id/admin-delete")
+  .put(authMiddleware.protect, authMiddleware.admin, deleteOrderForAdmin);
+
+  // 2. Thêm route khôi phục xuống dưới cùng
+router.route("/:id/admin-restore")
+  .put(authMiddleware.protect, authMiddleware.admin, restoreOrderForAdmin);
 
 module.exports = router;
