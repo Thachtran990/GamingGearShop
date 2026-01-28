@@ -13,7 +13,8 @@ const {
   updateOrderToCancelled,
   updateOrderStatus, 
   deleteOrderForAdmin, // <--- ĐÃ ĐỔI: Dùng hàm mới này thay cho softDeleteOrder
-  restoreOrderForAdmin
+  restoreOrderForAdmin,
+  getDashboardStats // 👈 Import hàm mới vào
 } = require("../controllers/orderController.js");
 
 // 👇 QUAN TRỌNG: Phải import 2 ông bảo vệ này vào thì mới dùng được
@@ -23,6 +24,9 @@ const { protect, admin } = require("../middlewares/authMiddleware.js");
 router.route("/")
   .post(addOrderItems)
   .get(authMiddleware.protect, authMiddleware.admin, getOrders);
+
+  // 👇 THÊM DÒNG NÀY (Đặt TRƯỚC các route có :id để tránh bị nhầm)
+router.route('/stats').get(protect, admin, getDashboardStats);
 
 // 2. Route xem lịch sử đơn của user
 router.get("/myorders", authMiddleware.protect, getMyOrders);

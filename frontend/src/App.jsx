@@ -19,6 +19,15 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminRoute from './components/AdminRoute'; // Import vào
 import AdminReviewList from "./pages/AdminReviewList";
+// Import vào
+import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
+import ShopPage from "./pages/ShopPage"; //trang danh mục sp theo bộ lọc
+// Import file vừa tạo
+import AdminCouponList from "./pages/admin/AdminCouponList";
+
+// 1. Import CSS và Container
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 function App() {
     const navigate = useNavigate();
@@ -48,6 +57,9 @@ function App() {
         <Route path="/order/:id" element={<OrderDetail />} /> 
         <Route path="/placeorder" element={<PlaceOrder />} />
         
+        {/* mới */}
+        <Route path="/shop" element={<ShopPage />} />
+        
         <Route path="" element={<PrivateRoute />}>
           <Route path="/myorders" element={<MyOrders />} />
           <Route path="/profile" element={<Profile />} />
@@ -65,10 +77,14 @@ function App() {
           <Route path="/admin/orderlist" element={<AdminOrderList />} />
           {/* 👇 THÊM DÒNG NÀY VÀO ĐÂY */}
           <Route path="/admin/reviews" element={<AdminReviewList />} />
+          <Route path="/admin/dashboard" element={<AdminDashboard />} /> {/* 👈 Thêm dòng này */}
+          <Route path="/admin/coupons" element={<AdminCouponList />} /> {/* 👈 THÊM DÒNG NÀY */}
         </Route>
       </Routes>
     </div>
   );
+
+  <ToastContainer />
 }
 
 export default App;

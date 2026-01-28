@@ -68,6 +68,11 @@ const orderSchema = mongoose.Schema(
       update_time: { type: String },
       email_address: { type: String },
     },
+
+    // 👇👇👇 THÊM 2 DÒNG NÀY VÀO ĐÂY 👇👇👇
+    couponCode: { type: String }, // Lưu tên mã (VD: TET2026)
+    discountAmount: { type: Number, default: 0 }, // Lưu số tiền được giảm
+    // 👆👆👆 ----------------------- 👆👆👆
     itemsPrice: { // Tiền hàng (chưa ship)
       type: Number,
       required: true,

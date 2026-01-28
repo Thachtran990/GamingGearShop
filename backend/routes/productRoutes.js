@@ -12,11 +12,15 @@ const {
   getAllReviews, 
   replyReview, 
   toggleSpamReview, 
-  deleteReview
+  deleteReview,
+  getFilterData
 } = require("../controllers/productController.js");
 
 // Route lấy tất cả review (Đặt lên trên cùng các route có param :id để tránh xung đột)
 router.get('/admin/reviews', protect, admin, getAllReviews);
+
+// 👇 Thêm route này (đặt TRƯỚC route /:id)
+router.route('/config/filters').get(getFilterData);
 
 router.route("/").get(getProducts).post(protect, admin, createProduct);
 // 2. Thêm Route cho Review

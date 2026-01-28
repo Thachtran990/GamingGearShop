@@ -3,14 +3,14 @@ dotenv.config();
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/db');
-const orderRoutes = require("./routes/orderRoutes"); // 1. Import
-const uploadRoutes = require('./routes/uploadRoutes.js'); // 👈 Import vào
 
-
-// Import Routes
+// --- IMPORT ROUTES ---
+const orderRoutes = require("./routes/orderRoutes"); 
+const uploadRoutes = require('./routes/uploadRoutes.js'); 
 const productRoutes = require('./routes/productRoutes'); 
-const userRoutes = require("./routes/userRoutes"); // <--- Dùng require cho đồng bộ
-
+const userRoutes = require("./routes/userRoutes"); 
+// 👇 1. THÊM DÒNG NÀY (Dùng require)
+const couponRoutes = require("./routes/couponRoutes"); 
 
 connectDB();
 
@@ -23,18 +23,22 @@ app.get('/', (req, res) => {
     res.send('API đang chạy ngon lành!');
 });
 
-// Sử dụng Routes
+// --- SỬ DỤNG ROUTES ---
 app.use('/api/products', productRoutes);
-app.use("/api/users", userRoutes); // <--- Đặt ở đây là chuẩn
-app.use("/api/orders", orderRoutes); // 2. Thêm dòng này vào
-// 👇 THÊM DÒNG NÀY
+app.use("/api/users", userRoutes); 
+app.use("/api/orders", orderRoutes); 
 app.use('/api/upload', uploadRoutes);
 
+// 👇 2. KÍCH HOẠT ROUTE COUPON
+app.use('/api/coupons', couponRoutes);
+
+
 const PORT = process.env.PORT || 5000;
-// 👇 THÊM ĐOẠN NÀY ĐỂ TRẢ VỀ PAYPAL CLIENT ID
+
 app.get("/api/config/paypal", (req, res) =>
   res.send(process.env.PAYPAL_CLIENT_ID || "sb") 
 );
+
 app.listen(PORT, () => {
     console.log(`Server đang chạy trên cổng ${PORT}`);
 });
