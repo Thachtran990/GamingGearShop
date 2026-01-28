@@ -18,7 +18,7 @@ const {
 // Route lấy tất cả review (Đặt lên trên cùng các route có param :id để tránh xung đột)
 router.get('/admin/reviews', protect, admin, getAllReviews);
 
-router.route("/").get(getProducts).post(createProduct);
+router.route("/").get(getProducts).post(protect, admin, createProduct);
 // 2. Thêm Route cho Review
 router.route("/:id/reviews").post(createProductReview);
 

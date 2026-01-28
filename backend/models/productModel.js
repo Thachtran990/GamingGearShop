@@ -65,6 +65,9 @@ const productSchema = mongoose.Schema(
     
     // Mảng review cũ
     reviews: [reviewSchema], 
+
+    // 👇 THÊM MỚI: Album ảnh chi tiết (Mảng chứa các đường link)
+    images: [String],
     
     rating: { type: Number, required: true, default: 0 }, 
     numReviews: { type: Number, required: true, default: 0 }, 

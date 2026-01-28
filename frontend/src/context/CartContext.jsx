@@ -3,45 +3,72 @@ import { createContext, useContext, useState, useEffect } from "react";
 const CartContext = createContext();
 
 export const CartProvider = ({ children }) => {
-  // 1. Lấy giỏ hàng từ LocalStorage (nếu có)
   const [cartItems, setCartItems] = useState(() => {
     const savedCart = localStorage.getItem("cartItems");
     return savedCart ? JSON.parse(savedCart) : [];
   });
 
-  
-
-  // 2. Lấy địa chỉ giao hàng từ LocalStorage (nếu có)
   const [shippingAddress, setShippingAddress] = useState(() => {
     const savedAddress = localStorage.getItem("shippingAddress");
     return savedAddress ? JSON.parse(savedAddress) : {};
   });
 
-  // Lưu giỏ hàng mỗi khi thay đổi
   useEffect(() => {
     localStorage.setItem("cartItems", JSON.stringify(cartItems));
   }, [cartItems]);
 
-  // Lưu địa chỉ mỗi khi thay đổi
   useEffect(() => {
     localStorage.setItem("shippingAddress", JSON.stringify(shippingAddress));
   }, [shippingAddress]);
 
-  const addToCart = (product) => {
-    const existItem = cartItems.find((x) => x._id === product._id);
+  // 👇 HÀM NÂNG CẤP: Thêm vào giỏ (Có kiểm tra tồn kho)
+  // 👇 SỬA HÀM NÀY: Trả về true/false để bên ngoài biết kết quả
+  const addToCart = (product, qty = 1) => {
+    const existItem = cartItems.find((x) => 
+      x._id === product._id && x.variantId === product.variantId
+    );
+
     if (existItem) {
+      const newQty = existItem.qty + qty;
+      
+      // KIỂM TRA TỒN KHO
+      if (newQty > product.countInStock) {
+          alert(`Trong giỏ bạn đã có ${existItem.qty} cái. Kho chỉ còn ${product.countInStock} cái nên không thể thêm nữa!`);
+          return false; // ❌ TRẢ VỀ FALSE (BÁO LỖI)
+      }
+
       setCartItems(
         cartItems.map((x) =>
-          x._id === existItem._id ? { ...x, qty: x.qty + 1 } : x
+          x._id === existItem._id && x.variantId === existItem.variantId
+            ? { ...x, qty: newQty }
+            : x
         )
       );
     } else {
-      setCartItems([...cartItems, { ...product, qty: 1 }]);
+      // Kiểm tra ngay cả khi thêm mới (đề phòng hack số lượng)
+      if (qty > product.countInStock) {
+         alert(`Kho chỉ còn ${product.countInStock} cái!`);
+         return false; // ❌ TRẢ VỀ FALSE
+      }
+      setCartItems([...cartItems, { ...product, qty: qty }]);
     }
+
+    return true; // ✅ TRẢ VỀ TRUE (THÀNH CÔNG)
   };
 
-  const removeFromCart = (id) => {
-    setCartItems(cartItems.filter((x) => x._id !== id));
+  // 👇 HÀM MỚI: Cập nhật số lượng trực tiếp (Dùng cho trang Giỏ hàng)
+  const updateCartItemQty = (productId, variantId, newQty) => {
+    setCartItems(cartItems.map((item) => 
+        (item._id === productId && item.variantId === variantId) 
+        ? { ...item, qty: newQty } 
+        : item
+    ));
+  };
+
+  const removeFromCart = (productId, variantId) => {
+    setCartItems(cartItems.filter((x) => 
+      !(x._id === productId && x.variantId === variantId)
+    ));
   };
 
   const clearCart = () => {
@@ -49,20 +76,18 @@ export const CartProvider = ({ children }) => {
     localStorage.removeItem("cartItems");
   };
 
-  // 👇 HÀM MỚI: Lưu địa chỉ giao hàng
-  const saveShippingAddress = (data) => {
-    setShippingAddress(data);
-  };
+  const saveShippingAddress = (data) => setShippingAddress(data);
 
   return (
     <CartContext.Provider
       value={{
         cartItems,
         addToCart,
+        updateCartItemQty, // <-- Xuất hàm này ra để CartPage dùng
         removeFromCart,
         clearCart,
-        shippingAddress, // Xuất biến này ra để dùng
-        saveShippingAddress, // Xuất hàm này ra để dùng
+        shippingAddress,
+        saveShippingAddress,
       }}
     >
       {children}

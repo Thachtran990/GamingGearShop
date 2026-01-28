@@ -2,37 +2,21 @@ const Product = require("../models/productModel.js");
 
 // @desc    Lấy tất cả sản phẩm (Có tìm kiếm & Phân trang)
 // @route   GET /api/products
-// const getProducts = async (req, res) => {
-//   try {
-//     const keyword = req.query.keyword
-//       ? { name: { $regex: req.query.keyword, $options: "i" } }
-//       : {};
-
-//     const products = await Product.find({ ...keyword });
-//     res.json(products);
-//   } catch (error) {
-//     res.status(500).json({ message: error.message });
-//   }
-// };
-
 const getProducts = async (req, res) => {
   try {
-    const pageSize = 8; // 👇 Số lượng sản phẩm trên 1 trang (Bạn có thể sửa số này)
+    const pageSize = 8;
     const page = Number(req.query.pageNumber) || 1;
 
     const keyword = req.query.keyword
       ? { name: { $regex: req.query.keyword, $options: "i" } }
       : {};
 
-    // Đếm tổng số sản phẩm khớp với từ khóa
     const count = await Product.countDocuments({ ...keyword });
     
-    // Lấy sản phẩm theo trang
     const products = await Product.find({ ...keyword })
       .limit(pageSize)
       .skip(pageSize * (page - 1));
 
-    // 👇 TRẢ VỀ CẤU TRÚC CHUẨN CHO FRONTEND
     res.json({ 
         products, 
         page, 
@@ -64,17 +48,14 @@ const getProductById = async (req, res) => {
 // @access  Private/Admin
 const createProduct = async (req, res) => {
   try {
+    // 👇 SỬA LỖI Ở ĐÂY: Thêm 'images' vào destructuring
     const {
-      name,
-      price,
-      description,
-      image,
-      brand,
-      category,
-      countInStock,
-      hasVariants,
-      variants,
+      name, price, description, image, brand, category, countInStock, hasVariants, variants, images
     } = req.body;
+
+    if (!req.user) {
+        return res.status(401).json({ message: "Lỗi xác thực: Không tìm thấy thông tin Admin." });
+    }
 
     const product = new Product({
       name,
@@ -84,6 +65,8 @@ const createProduct = async (req, res) => {
       brand,
       category,
       countInStock: countInStock || 0,
+      // 👇 Giờ biến 'images' đã có dữ liệu để lưu
+      images: images || [], 
       numReviews: 0,
       description,
       hasVariants: hasVariants || false,
@@ -110,6 +93,7 @@ const updateProduct = async (req, res) => {
       brand,
       category,
       countInStock,
+      images, // 👈 Đảm bảo có nhận images khi sửa
       hasVariants,
       variants,
     } = req.body;
@@ -124,6 +108,10 @@ const updateProduct = async (req, res) => {
       product.brand = brand || product.brand;
       product.category = category || product.category;
       product.countInStock = countInStock || 0;
+      
+      // 👇 Cập nhật album ảnh (Nếu không gửi ảnh mới thì giữ nguyên ảnh cũ)
+      product.images = images || product.images;
+      
       product.hasVariants = hasVariants; 
       product.variants = variants;
 
@@ -155,9 +143,18 @@ const deleteProduct = async (req, res) => {
   }
 };
 
-// --- CÁC HÀM VỀ REVIEW (ĐÃ PHỤC HỒI ĐẦY ĐỦ) ---
+// @desc    Lấy top sản phẩm (Carousel - Bắt buộc phải có để tránh lỗi Router)
+const getTopProducts = async (req, res) => {
+  try {
+    const products = await Product.find({}).sort({ rating: -1 }).limit(3);
+    res.json(products);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
-// @desc    Tạo review mới
+// --- CÁC HÀM VỀ REVIEW ---
+
 const createProductReview = async (req, res) => {
   const { rating, comment, userId, name } = req.body;
   const product = await Product.findById(req.params.id);
@@ -192,7 +189,6 @@ const createProductReview = async (req, res) => {
   }
 };
 
-// @desc    Lấy tất cả review (Admin)
 const getAllReviews = async (req, res) => {
     try {
         const products = await Product.find({}).select('name reviews');
@@ -212,7 +208,6 @@ const getAllReviews = async (req, res) => {
     }
 };
 
-// @desc    Trả lời review
 const replyReview = async (req, res) => {
   const { productId, reviewId } = req.params;
   const { comment, name, userId, isAdmin } = req.body;
@@ -238,7 +233,6 @@ const replyReview = async (req, res) => {
   }
 };
 
-// @desc    Ẩn/Hiện review (Spam)
 const toggleSpamReview = async (req, res) => {
     const { productId, reviewId } = req.params;
     const product = await Product.findById(productId);
@@ -256,17 +250,14 @@ const toggleSpamReview = async (req, res) => {
     }
 };
 
-// @desc    Xóa review
 const deleteReview = async (req, res) => {
     const { productId, reviewId } = req.params;
     const product = await Product.findById(productId);
     if (product) {
-        // Lọc bỏ review cần xóa
         product.reviews = product.reviews.filter(
             (r) => r._id.toString() !== reviewId.toString()
         );
         
-        // Tính lại rating
         product.numReviews = product.reviews.length;
         if(product.numReviews > 0) {
             product.rating = product.reviews.reduce((acc, item) => item.rating + acc, 0) / product.reviews.length;
@@ -281,7 +272,6 @@ const deleteReview = async (req, res) => {
     }
 };
 
-// 👇 QUAN TRỌNG: Xuất khẩu đầy đủ tất cả các hàm
 module.exports = {
   getProducts,
   getProductById,
@@ -291,6 +281,7 @@ module.exports = {
   createProductReview,
   replyReview,
   getAllReviews,
-  toggleSpamReview, // <-- Đã thêm lại
-  deleteReview      // <-- Đã thêm lại
+  toggleSpamReview,
+  deleteReview,
+  getTopProducts // Thêm cái này để tránh lỗi Router
 };

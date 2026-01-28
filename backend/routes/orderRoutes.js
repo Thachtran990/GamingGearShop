@@ -10,10 +10,14 @@ const {
   getOrderById,
   updateOrderToPaid,
   updateOrderToDelivered,
+  updateOrderToCancelled,
   updateOrderStatus, 
   deleteOrderForAdmin, // <--- ĐÃ ĐỔI: Dùng hàm mới này thay cho softDeleteOrder
   restoreOrderForAdmin
 } = require("../controllers/orderController.js");
+
+// 👇 QUAN TRỌNG: Phải import 2 ông bảo vệ này vào thì mới dùng được
+const { protect, admin } = require("../middlewares/authMiddleware.js");
 
 // 1. Route tạo đơn & Lấy tất cả đơn (Admin)
 router.route("/")
@@ -46,5 +50,8 @@ router.route("/:id/admin-delete")
   // 2. Thêm route khôi phục xuống dưới cùng
 router.route("/:id/admin-restore")
   .put(authMiddleware.protect, authMiddleware.admin, restoreOrderForAdmin);
+
+  // 👇 THÊM ROUTE NÀY CHO NÚT HỦY ĐƠN
+router.route("/:id/cancel").put(protect, admin, updateOrderToCancelled);
 
 module.exports = router;

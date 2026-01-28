@@ -8,46 +8,45 @@ const PlaceOrder = () => {
 
   // Tính toán tiền nong
   const itemsPrice = cartItems.reduce((acc, item) => acc + item.price * item.qty, 0);
-  const shippingPrice = itemsPrice > 1000000 ? 0 : 30000; // Freeship nếu > 1 triệu (ví dụ)
+  const shippingPrice = itemsPrice > 1000000 ? 0 : 30000; 
   const totalPrice = itemsPrice + shippingPrice;
 
   // Nếu giỏ hàng rỗng thì đá về trang chủ
-  // useEffect(() => {
-  //   if (cartItems.length === 0) {
-  //     navigate("/cart");
-  //   }
-  // }, [cartItems, navigate]);
+  useEffect(() => {
+    if (cartItems.length === 0) {
+      navigate("/cart");
+    }
+  }, [cartItems, navigate]);
 
   const placeOrderHandler = async () => {
     try {
       const userInfo = JSON.parse(localStorage.getItem("userInfo"));
 
-      // 👇 1. Cấu hình Header linh hoạt (Khách hay Chủ đều dùng được)
+      // 1. Cấu hình Header
       const config = {
         headers: {
           "Content-Type": "application/json",
         },
       };
 
-      // 👇 2. Chỉ kẹp Token vào NẾU ĐÃ ĐĂNG NHẬP
       if (userInfo && userInfo.token) {
         config.headers.Authorization = `Bearer ${userInfo.token}`;
       }
 
-      // 3. Gửi đơn hàng
-      // 3. Gửi đơn hàng
+      // 2. Gửi đơn hàng
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: config.headers,
         body: JSON.stringify({
           
-          // 👇 SỬA ĐOẠN NÀY: Map (chuyển đổi) dữ liệu để khớp với Backend
+          // 👇 SỬA QUAN TRỌNG Ở ĐÂY: Gửi thêm variantId
           orderItems: cartItems.map((item) => ({
              name: item.name,
              qty: item.qty,
              image: item.image,
              price: item.price,
-             product: item._id, // <--- QUAN TRỌNG: Gán _id của SP vào trường 'product'
+             product: item._id, // ID sản phẩm gốc
+             variantId: item.variantId // <--- THÊM DÒNG NÀY ĐỂ TRỪ KHO ĐÚNG
           })),
 
           shippingAddress: shippingAddress,
@@ -64,8 +63,7 @@ const PlaceOrder = () => {
 
       if (res.ok) {
         // Xóa giỏ hàng sau khi đặt thành công
-        clearCart(); // Đảm bảo bạn đã có hàm này trong CartContext, nếu chưa thì tạm bỏ qua dòng này
-        // Chuyển hướng đến trang chi tiết đơn hàng
+        clearCart(); 
         navigate(`/order/${data._id}`);
       } else {
         alert(data.message || "Đặt hàng thất bại");
@@ -93,7 +91,6 @@ const PlaceOrder = () => {
           <div className="bg-white p-6 rounded shadow-sm border">
             <h2 className="text-xl font-bold mb-4 text-gray-700 border-b pb-2">GIAO TỚI</h2>
             <p className="text-lg font-semibold">
-                {/* Nếu là khách thì hiện tên khách, nếu là User thì hiện tên user (hoặc để trống) */}
                 {shippingAddress.guestName && <span className="text-blue-600">{shippingAddress.guestName} | </span>}
                 {shippingAddress.address}, {shippingAddress.city}
             </p>
@@ -112,9 +109,13 @@ const PlaceOrder = () => {
                   <li key={index} className="flex justify-between items-center py-4 border-b last:border-0">
                     <div className="flex items-center gap-4">
                       <img src={item.image} alt={item.name} className="w-16 h-16 object-cover rounded border" />
-                      <Link to={`/product/${item.product}`} className="text-blue-600 hover:underline font-medium">
-                        {item.name}
-                      </Link>
+                      <div>
+                        <Link to={`/product/${item.product}`} className="text-blue-600 hover:underline font-medium block">
+                          {item.name}
+                        </Link>
+                        {/* Hiển thị thuộc tính biến thể nếu có (VD: Màu Đen) */}
+                        {item.variantId && <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">Phân loại hàng: {item.name.split('(')[1]?.replace(')', '') || 'Biến thể'}</span>}
+                      </div>
                     </div>
                     <div className="text-gray-600">
                       {item.qty} x {item.price.toLocaleString('vi-VN')} đ = <span className="font-bold text-black">{(item.qty * item.price).toLocaleString('vi-VN')} đ</span>

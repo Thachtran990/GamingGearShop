@@ -39,8 +39,12 @@ const orderSchema = mongoose.Schema(
         product: {
           type: mongoose.Schema.Types.ObjectId,
           required: true,
-          ref: "Product",
+          ref: "Product"
+          // 👇 QUAN TRỌNG: Đảm bảo có trường variantId này
         },
+
+        // 2. Khai báo variantId nằm NGANG HÀNG ở ngoài này
+        variantId: { type: String },
       },
     ],
     
@@ -85,6 +89,9 @@ const orderSchema = mongoose.Schema(
     paidAt: { type: Date }, // Ngày thanh toán
     isDelivered: { type: Boolean, required: true, default: false },
     deliveredAt: { type: Date }, // Ngày giao hàng
+
+    // 👇 THÊM MỚI TRƯỜNG NÀY VÀO
+    isCancelled: { type: Boolean, required: true, default: false },
   },
   { timestamps: true }
 );

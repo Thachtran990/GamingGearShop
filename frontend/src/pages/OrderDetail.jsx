@@ -1,3 +1,5 @@
+import axios from "axios"; // 👈 THÊM DÒNG NÀY LÊN TRÊN CÙNG
+// ... các import khác
 import { useState, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
@@ -35,7 +37,7 @@ const OrderDetail = () => {
         const res = await fetch("/api/config/paypal");
         const data = await res.text();
         if (data.includes("<!DOCTYPE html>") || data.includes("<html")) {
-             return;
+          return;
         }
         setClientId(data);
       } catch (err) {
@@ -50,7 +52,7 @@ const OrderDetail = () => {
   }, [order, id, userInfo]);
 
   const deliverHandler = async () => {
-    if (!userInfo || !userInfo.token) return; 
+    if (!userInfo || !userInfo.token) return;
     try {
       const res = await fetch(`/api/orders/${id}/deliver`, {
         method: "PUT",
@@ -89,12 +91,61 @@ const OrderDetail = () => {
 
   // 👇 HÀM MỚI: Helper chọn màu sắc dựa trên trạng thái
   const getStatusColor = (status) => {
-      switch (status) {
-          case "Đã giao hàng": return "bg-green-100 text-green-700";
-          case "Đang giao hàng": return "bg-blue-100 text-blue-700";
-          case "Đã hủy": return "bg-red-100 text-red-700";
-          default: return "bg-yellow-100 text-yellow-700"; // Chờ xử lý
-      }
+    switch (status) {
+      case "Đã giao hàng": return "bg-green-100 text-green-700";
+      case "Đang giao hàng": return "bg-blue-100 text-blue-700";
+      case "Đã hủy": return "bg-red-100 text-red-700";
+      default: return "bg-yellow-100 text-yellow-700"; // Chờ xử lý
+    }
+  };
+
+  // Hàm gọi API hủy đơn
+  // const cancelOrderHandler = async () => {
+  //   if (window.confirm("Bạn có chắc muốn hủy đơn này? Kho sẽ được hoàn lại tự động.")) {
+  //     try {
+  //       const config = {
+  //         headers: { Authorization: `Bearer ${userInfo.token}` },
+  //       };
+  //       await axios.put(`/api/orders/${id}/cancel`, {}, config);
+  //       alert("Đã hủy đơn và hoàn kho thành công!");
+  //       //window.location.reload(); // Load lại trang để cập nhật trạng thái
+  //     } catch (error) {
+  //       alert(error.response?.data?.message || "Lỗi khi hủy đơn");
+  //     }
+  //   }
+  // };
+
+  // 👇 HÀM DEBUG (Sửa lại hàm cũ của bạn bằng hàm này)
+  const cancelOrderHandler = async () => {
+    console.log("1. Bắt đầu bấm nút hủy..."); // Log 1
+
+    if (window.confirm("Bạn có chắc muốn hủy đơn này?")) {
+        try {
+            console.log("2. Đang chuẩn bị gửi request..."); // Log 2
+            
+            const config = {
+                headers: { 
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${userInfo.token}` 
+                },
+            };
+            
+            // In ra đường dẫn xem có đúng ID không
+            console.log(`3. Gửi đến URL: /api/orders/${id}/cancel`); 
+
+            const { data } = await axios.put(`/api/orders/${id}/cancel`, {}, config);
+            
+            console.log("4. Kết quả trả về:", data); // Log 4
+            alert("Đã hủy đơn và hoàn kho thành công!");
+            
+            // ❌ TẠM THỜI COMMENT DÒNG NÀY LẠI ĐỂ SOI LỖI
+            window.location.reload(); 
+            
+        } catch (error) {
+            console.error("5. CÓ LỖI XẢY RA:", error); // Log 5
+            alert(error.response?.data?.message || "Lỗi khi hủy đơn (Xem Console)");
+        }
+    }
   };
 
   if (loading) return <div className="text-center mt-10">Đang tải...</div>;
@@ -103,45 +154,64 @@ const OrderDetail = () => {
   return (
     <div className="container mx-auto p-4 max-w-6xl">
       <div className="flex justify-between items-center mb-6">
-         <h1 className="text-2xl font-bold text-gray-800">ĐƠN HÀNG: <span className="text-blue-600">{order._id}</span></h1>
-         <Link to="/" className="text-blue-500 hover:underline">Quay về trang chủ</Link>
+        <h1 className="text-2xl font-bold text-gray-800">ĐƠN HÀNG: <span className="text-blue-600">{order._id}</span></h1>
+        <Link to="/" className="text-blue-500 hover:underline">Quay về trang chủ</Link>
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {/* CỘT TRÁI */}
         <div className="md:col-span-2 space-y-6">
-           <div className="bg-white p-6 rounded shadow-md border">
+          <div className="bg-white p-6 rounded shadow-md border">
             <h2 className="text-xl font-bold mb-4 text-gray-700 border-b pb-2">THÔNG TIN NHẬN HÀNG</h2>
             <p className="mb-2"><strong>Người nhận:</strong> {order.guestInfo?.name || order.user?.name || "Khách"}</p>
             <p className="mb-2"><strong>Email:</strong> <a href={`mailto:${order.guestInfo?.email || order.user?.email}`} className="text-blue-600">{order.guestInfo?.email || order.user?.email}</a></p>
             <p className="mb-2"><strong>Địa chỉ:</strong> {order.shippingAddress?.address}, {order.shippingAddress?.city}</p>
             <p className="mb-4"><strong>Số điện thoại:</strong> {order.shippingAddress?.phone}</p>
-            
+
             {/* 👇 CẬP NHẬT PHẦN HIỂN THỊ TRẠNG THÁI Ở ĐÂY */}
             <div className="flex gap-4">
-                 <div className={`px-4 py-2 rounded font-bold ${getStatusColor(order.status)}`}>
-                    {/* Ưu tiên hiện status text, nếu không có thì fallback về logic cũ */}
-                    🚚 {order.status || (order.isDelivered ? "Đã giao hàng" : "Chờ xử lý")}
-                 </div>
+              <div className={`px-4 py-2 rounded font-bold ${getStatusColor(order.status)}`}>
+                {/* Ưu tiên hiện status text, nếu không có thì fallback về logic cũ */}
+                🚚 {order.status || (order.isDelivered ? "Đã giao hàng" : "Chờ xử lý")}
+              </div>
             </div>
           </div>
 
+          {/* CHỈ HIỆN KHI LÀ ADMIN VÀ ĐƠN CHƯA HỦY */}
+          {userInfo && userInfo.isAdmin && !order.isCancelled && !order.isDelivered && (
+            <div className="mt-4">
+              <button type="button"
+                onClick={cancelOrderHandler}
+                className="w-full bg-red-600 text-white py-3 rounded font-bold hover:bg-red-700 transition"
+              >
+                HỦY ĐƠN HÀNG & HOÀN KHO
+              </button>
+            </div>
+          )}
+
+          {/* HIỆN THÔNG BÁO NẾU ĐÃ HỦY */}
+          {order.isCancelled && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mt-4 text-center font-bold">
+              ĐƠN HÀNG ĐÃ BỊ HỦY
+            </div>
+          )}
+
           <div className="bg-white p-6 rounded shadow-md border">
             <h2 className="text-xl font-bold mb-4 text-gray-700 border-b pb-2">SẢN PHẨM ĐÃ MUA</h2>
-             <ul className="divide-y">
-                {order.orderItems.map((item, index) => (
-                  <li key={index} className="flex justify-between items-center py-3">
-                      <div className="flex items-center gap-4">
-                        <img src={item.image} alt={item.name} className="w-16 h-16 object-cover rounded border"/>
-                        <span className="font-medium text-gray-700">{item.name}</span>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm text-gray-500">{item.qty} x {item.price.toLocaleString('vi-VN')} đ</p>
-                        <p className="font-bold text-gray-900">{(item.qty * item.price).toLocaleString('vi-VN')} đ</p>
-                      </div>
-                  </li>
-                ))}
-             </ul>
+            <ul className="divide-y">
+              {order.orderItems.map((item, index) => (
+                <li key={index} className="flex justify-between items-center py-3">
+                  <div className="flex items-center gap-4">
+                    <img src={item.image} alt={item.name} className="w-16 h-16 object-cover rounded border" />
+                    <span className="font-medium text-gray-700">{item.name}</span>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-gray-500">{item.qty} x {item.price.toLocaleString('vi-VN')} đ</p>
+                    <p className="font-bold text-gray-900">{(item.qty * item.price).toLocaleString('vi-VN')} đ</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
 
@@ -149,47 +219,47 @@ const OrderDetail = () => {
         <div className="md:col-span-1">
           <div className="bg-white p-6 rounded shadow-lg border border-gray-200">
             <h2 className="text-xl font-bold mb-6 text-center border-b pb-2">THANH TOÁN</h2>
-            
+
             <div className="space-y-3 mb-6">
-                <div className="flex justify-between text-gray-600">
-                    <span>Tiền hàng:</span>
-                    <span>{order.itemsPrice?.toLocaleString('vi-VN')} đ</span>
-                </div>
-                <div className="flex justify-between text-gray-600">
-                    <span>Phí Ship:</span>
-                    <span>{order.shippingPrice?.toLocaleString('vi-VN')} đ</span>
-                </div>
-                <div className="flex justify-between text-xl font-bold text-red-600 pt-3 border-t">
-                    <span>Tổng cộng:</span>
-                    <span>{order.totalPrice?.toLocaleString('vi-VN')} đ</span>
-                </div>
+              <div className="flex justify-between text-gray-600">
+                <span>Tiền hàng:</span>
+                <span>{order.itemsPrice?.toLocaleString('vi-VN')} đ</span>
+              </div>
+              <div className="flex justify-between text-gray-600">
+                <span>Phí Ship:</span>
+                <span>{order.shippingPrice?.toLocaleString('vi-VN')} đ</span>
+              </div>
+              <div className="flex justify-between text-xl font-bold text-red-600 pt-3 border-t">
+                <span>Tổng cộng:</span>
+                <span>{order.totalPrice?.toLocaleString('vi-VN')} đ</span>
+              </div>
             </div>
 
             {/* TRẠNG THÁI THANH TOÁN */}
             <div className="mb-6 text-center">
-                {order.isPaid ? (
-                    <div className="bg-green-500 text-white py-2 rounded shadow">
-                        ĐÃ THANH TOÁN ONLINE <br/>
-                        <span className="text-sm">{new Date(order.paidAt).toLocaleString('vi-VN')}</span>
-                    </div>
-                ) : (
-                    <div className="bg-orange-100 text-orange-800 py-2 rounded border border-orange-200">
-                        Thanh toán khi nhận hàng (COD)
-                    </div>
-                )}
+              {order.isPaid ? (
+                <div className="bg-green-500 text-white py-2 rounded shadow">
+                  ĐÃ THANH TOÁN ONLINE <br />
+                  <span className="text-sm">{new Date(order.paidAt).toLocaleString('vi-VN')}</span>
+                </div>
+              ) : (
+                <div className="bg-orange-100 text-orange-800 py-2 rounded border border-orange-200">
+                  Thanh toán khi nhận hàng (COD)
+                </div>
+              )}
             </div>
 
             {!order.isPaid && clientId && (
               <PayPalScriptProvider options={{ "client-id": clientId, currency: "USD" }}>
-                <PayPalButtons 
-                    createOrder={(data, actions) => {
-                      return actions.order.create({
-                        purchase_units: [
-                          { amount: { value: (order.totalPrice / 25000).toFixed(2) } }, 
-                        ],
-                      });
-                    }}
-                    onApprove={onApprove}
+                <PayPalButtons
+                  createOrder={(data, actions) => {
+                    return actions.order.create({
+                      purchase_units: [
+                        { amount: { value: (order.totalPrice / 25000).toFixed(2) } },
+                      ],
+                    });
+                  }}
+                  onApprove={onApprove}
                 />
               </PayPalScriptProvider>
             )}
